@@ -1,0 +1,159 @@
+#!/usr/bin/env python3
+##
+## CREATIVE LAB PROJECT, 2022
+## Yannis Defontaine
+## File description:
+## Pong game, play with your hands
+##
+
+import sys
+import pygame
+import math
+
+NB_ARG=1
+ERROR=-1
+SUCCESS=0
+
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+BLUE = (0, 0, 255)
+GREEN = (0, 255, 0)
+RED = (255, 0, 0)
+
+FRAMES_PER_SECOND = 30
+WINDOW_HEIGHT = 600
+WINDOW_WIDTH = 800
+
+#------------------------------------------------------------------------------#
+
+class Player:
+    def __init__(self, x: int = 10, y: int = 10, size_x: int = 25, size_y: int = 100, speed: int = 10, col: int = BLUE) -> None:
+        self.x = x
+        self.y = y
+
+        self.size_x = size_x
+        self.size_y = size_y
+
+        self.color = col
+        self.speed = speed
+
+    def draw(self, screen):
+        pygame.draw.rect(screen, self.color, ((self.x, self.y), (self.size_x, self.size_y)))
+
+    def move(self, bonus: int):
+        key = pygame.key.get_pressed()
+        if key[pygame.K_UP]:
+           self.y -= self.speed + bonus
+        if key[pygame.K_DOWN]:
+           self.y += self.speed + bonus
+
+    def update(self, screen, bonus: int = 0):
+        self.draw(screen)
+        self.move(bonus)
+
+class Ball:
+    def __init__(self, x: int = WINDOW_WIDTH / 2, y: int = WINDOW_HEIGHT / 2, circle_radius: int = 10, speed: int = 12) -> None:
+        self.x = x
+        self.y = y
+
+        self.radius = circle_radius
+
+        self.color = RED
+        self.speed = speed
+        
+        self.canCollid = True
+
+        self.vector = [-1, 0]
+
+    def draw(self, screen):
+        pygame.draw.circle(screen, self.color, (self.x, self.y), self.radius, 100)
+
+    def move(self, bonus: int):
+        if self.vector[0] == 1:
+            self.x += self.speed + bonus
+        if self.vector[0] == -1:
+            self.x -= self.speed + bonus
+        if self.vector[1] == 1:
+            self.y += self.speed + bonus
+        if self.vector[1] == -1:
+            self.y -= self.speed + bonus
+
+    def update(self, screen, bonus: int = 0):
+        self.draw(screen)
+        self.move(bonus)
+
+#------------------------------------------------------------------------------#
+
+def checkOverlap(R, Xc, Yc, X1, Y1, X2, Y2):
+    Xn = max(X1, min(Xc, X2))
+    Yn = max(Y1, min(Yc, Y2))
+     
+    Dx = Xn - Xc
+    Dy = Yn - Yc
+    return (Dx**2 + Dy**2) <= R**2
+#------------------------------------------------------------------------------#
+
+def pong() -> None:
+    screen_is_open = True
+    pygame.init()
+
+    screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+    clock = pygame.time.Clock()
+
+    player_one = Player(y=WINDOW_HEIGHT-500)
+    player_two = Player(x=WINDOW_WIDTH-40, y=WINDOW_HEIGHT-500, col=GREEN)
+    ball = Ball()
+
+    while screen_is_open:
+        clock.tick(FRAMES_PER_SECOND)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                screen_is_open = False
+        screen.fill(BLACK)
+
+        player_two.update(screen)
+        player_one.update(screen)
+        ball.update(screen)
+
+#        pygame.draw.rect(screen, WHITE, ((player_one.x, player_one.y), (5, 5))) # HAUT GAUCHE
+#        pygame.draw.rect(screen, WHITE, ((player_one.x + player_one.size_x - 5, player_one.y), (5, 5))) # HAUT DROITE
+#        pygame.draw.rect(screen, WHITE, ((player_one.x, player_one.y + player_one.size_y - 5), (5, 5))) # BAS GAUCHE
+#        pygame.draw.rect(screen, WHITE, ((player_one.x + player_one.size_x - 5, player_one.y + player_one.size_y - 5), (5, 5))) # BAS DROITE
+
+#        pygame.draw.rect(screen, WHITE, ((player_two.x, player_two.y), (5, 5))) # HAUT GAUCHE
+#        pygame.draw.rect(screen, WHITE, ((player_two.x + player_two.size_x - 5, player_two.y), (5, 5))) # HAUT DROITE
+#        pygame.draw.rect(screen, WHITE, ((player_two.x, player_two.y + player_two.size_y - 5), (5, 5))) # BAS GAUCHE
+#        pygame.draw.rect(screen, WHITE, ((player_two.x + player_two.size_x - 5, player_two.y + player_two.size_y - 5), (5, 5))) # BAS DROITE
+
+#        pygame.draw.rect(screen, BLUE, ((ball.x + ball.radius - 5, ball.y - 2), (5, 5)))    # droite
+#        pygame.draw.rect(screen, BLUE, ((ball.x - ball.radius, ball.y - 2), (5, 5)))        # gauche
+#        pygame.draw.rect(screen, BLUE, ((ball.x - 2, ball.y + ball.radius - 3), (5, 5)))    # bas
+#        pygame.draw.rect(screen, BLUE, ((ball.x - 2, ball.y - ball.radius - 1), (5, 5)))    # droite
+
+#        print(ball.radius, ball.x, ball.x, "->", checkOverlap(ball.radius, ball.x, ball.y, player_one.x, player_one.y, player_one.x + player_one.size_x, player_one.y + player_one.size_y))
+
+        if checkOverlap(ball.radius, ball.x, ball.y, player_one.x, player_one.y, player_one.x + player_one.size_x, player_one.y + player_one.size_y) and ball.canCollid:
+            ball.vector[0] *= -1
+            ball.speed += 1
+
+        if checkOverlap(ball.radius, ball.x, ball.y, player_two.x, player_two.y, player_two.x + player_two.size_x, player_two.y + player_two.size_y) and ball.canCollid:
+            ball.vector[0] *= -1
+            ball.speed += 1
+
+        pygame.display.update()
+
+    pygame.quit()
+
+#------------------------------------------------------------------------------#
+
+def description():
+    print("USAGE")
+    print("\t./pong")
+    print("DESCRIPTION")
+    print("\tPong game, play with your hands")
+
+if __name__ == '__main__':
+    if len(sys.argv) != NB_ARG:
+        exit(ERROR)
+    pong()
