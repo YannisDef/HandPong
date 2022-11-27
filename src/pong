@@ -9,10 +9,14 @@
 import sys
 import pygame
 import math
+from random import randint
 
 NB_ARG=1
 ERROR=-1
 SUCCESS=0
+
+Y = 1
+X = 0
 
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
@@ -63,20 +67,21 @@ class Ball:
         
         self.canCollid = True
 
-        self.vector = [-1, 0]
+        axe = [-1, 1]
+        self.vector = [axe[randint(0, 1)], axe[randint(0, 1)]]
 
     def draw(self, screen):
         pygame.draw.circle(screen, self.color, (self.x, self.y), self.radius, 100)
 
     def move(self, bonus: int):
-        if self.vector[0] == 1:
+        if self.vector[X] == 1:
             self.x += self.speed + bonus
-        if self.vector[0] == -1:
+        if self.vector[X] == -1:
             self.x -= self.speed + bonus
-        if self.vector[1] == 1:
-            self.y += self.speed + bonus
-        if self.vector[1] == -1:
-            self.y -= self.speed + bonus
+        if self.vector[Y] == 1:
+            self.y += (self.speed/2) + bonus
+        if self.vector[Y] == -1:
+            self.y -= (self.speed/2) + bonus
 
     def update(self, screen, bonus: int = 0):
         self.draw(screen)
@@ -87,10 +92,10 @@ class Ball:
 def checkOverlap(R, Xc, Yc, X1, Y1, X2, Y2):
     Xn = max(X1, min(Xc, X2))
     Yn = max(Y1, min(Yc, Y2))
-     
     Dx = Xn - Xc
     Dy = Yn - Yc
     return (Dx**2 + Dy**2) <= R**2
+
 #------------------------------------------------------------------------------#
 
 def pong() -> None:
@@ -133,13 +138,16 @@ def pong() -> None:
 
 #        print(ball.radius, ball.x, ball.x, "->", checkOverlap(ball.radius, ball.x, ball.y, player_one.x, player_one.y, player_one.x + player_one.size_x, player_one.y + player_one.size_y))
 
+        if ball.y <= 0 or ball.y >= 600:
+            ball.vector[Y] *= -1
+
         if checkOverlap(ball.radius, ball.x, ball.y, player_one.x, player_one.y, player_one.x + player_one.size_x, player_one.y + player_one.size_y) and ball.canCollid:
-            ball.vector[0] *= -1
-            ball.speed += 1
+            ball.vector[X] *= -1
+            ball.speed += 0.5
 
         if checkOverlap(ball.radius, ball.x, ball.y, player_two.x, player_two.y, player_two.x + player_two.size_x, player_two.y + player_two.size_y) and ball.canCollid:
-            ball.vector[0] *= -1
-            ball.speed += 1
+            ball.vector[X] *= -1
+            ball.speed += 0.5
 
         pygame.display.update()
 
