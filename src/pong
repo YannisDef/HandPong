@@ -43,6 +43,8 @@ class Player:
         self.color = col
         self.speed = speed
 
+        self.score = 0
+
     def draw(self, screen):
         pygame.draw.rect(screen, self.color, ((self.x, self.y), (self.size_x, self.size_y)))
 
@@ -57,24 +59,32 @@ class Player:
         self.draw(screen)
         self.move(bonus)
 
+
 class Ball:
     def __init__(self, x: int = WINDOW_WIDTH / 2, y: int = WINDOW_HEIGHT / 2, circle_radius: int = 10, speed: int = 12) -> None:
+        self.spwan_x = x
+        self.spwan_y = y
+
         self.x = x
         self.y = y
 
         self.radius = circle_radius
 
         self.color = RED
+
+        self.speed_max = speed
         self.speed = speed
-        
+
         self.can_collid = True
 
-        axe = [-1, 1]
+        self.axe = [-1, 1]
         #TODO axe[randint(0, 1)] mettre ca aussi en x
-        self.vector = [-1, axe[randint(0, 1)]]
+        self.vector = [-1, self.axe[randint(0, 1)]]
+
 
     def draw(self, screen):
         pygame.draw.circle(screen, self.color, (self.x, self.y), self.radius, 100)
+
 
     def move(self, bonus: int):
         if self.vector[X] == 1:
@@ -86,11 +96,18 @@ class Ball:
         if self.vector[Y] == -1:
             self.y -= (self.speed/2) + bonus
 
+
     def update(self, screen, bonus: int = 0):
         if self.y <= 0 or self.y >= 480:
             self.vector[Y] *= -1
+        if self.x < 0 or self.y > 650:
+            self.vector = [self.axe[randint(0, 1)], self.axe[randint(0, 1)]]
+            self.x, self.y = self.spwan_x, self.spwan_y
+            self.speed = self.speed_max
+            return 1 if self.y > 650 else 2
         self.draw(screen)
         self.move(bonus)
+
 
 def check_overlap(R, Xc, Yc, X1, Y1, X2, Y2):
     Xn = max(X1, min(Xc, X2))
@@ -99,16 +116,17 @@ def check_overlap(R, Xc, Yc, X1, Y1, X2, Y2):
     Dy = Yn - Yc
     return (Dx**2 + Dy**2) <= R**2
 
+
 #--------------------------HAND-DETECTION--------------------------------------#
 
 CAMERA = 0
 camera = cv2.VideoCapture(CAMERA)
 
-#------------------------------------------------------------------------------#
-
+#TODO search what is this
 def blit_cam_frame(frame, screen):
     screen.blit(frame,(0,0))
     return screen
+
 
 def get_cam_frame(camera):
     retval, frame=camera.read()
@@ -118,12 +136,13 @@ def get_cam_frame(camera):
     Nframe = pygame.surfarray.make_surface(Nframe)
     return frame, Nframe
 
+
 class hand_detector:
     def __init__(self, max_hands=2, detection_con=0.5, minTrack_con=0.5):
         """
-        :param max_hands: Maximum number of hands to detect
-        :param detection_con: Minimum Detection Confidence Threshold
-        :param minTrack_con: Minimum Tracking Confidence Threshold
+            max_hands(int): Maximum number of hands to detect
+            detection_con(float): Minimum Detection Confidence Threshold
+            minTrack_con(float): Minimum Tracking Confidence Threshold
         """
         self.mp_hands = mp.solutions.hands
         self.hands = self.mp_hands.Hands(
@@ -156,6 +175,7 @@ class hand_detector:
 
                 player_one.y = bbox[1]
 
+
 def pong() -> None:
     screen_is_open = True
     pygame.init()
@@ -169,7 +189,13 @@ def pong() -> None:
     detector = hand_detector(detection_con=0.8, max_hands=2)
 
     ret, frame = camera.read()
-    cv2.flip(frame,1,frame)#mirror the image
+    if not ret:
+        print(f'error: {ret}')
+        return ERROR
+    cv2.flip(frame, 1, frame)#mirror the image
+
+    font = pygame.font.SysFont('data/font/arial.ttf', 52)
+    general_score = font.render(str(player_one.score) + '-' + str(player_two.score), True, BLUE)
 
     while screen_is_open:
         screen.fill(BLACK)
@@ -181,9 +207,6 @@ def pong() -> None:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 screen_is_open = False
-        if not ret:
-            print("ERROR with the cam")
-            break
         if cv2.waitKey(1) == ord('q'):
             screen_is_open = False
         #!----------------------------------------------------------------------
@@ -196,7 +219,14 @@ def pong() -> None:
         player_two.y = ball.y - (player_two.size_y / 2)
         #? ----------
 
-        ball.update(screen)
+        winner = ball.update(screen)
+
+        if winner == 1:
+            player_one.score += 1
+            general_score = font.render(str(player_one.score) + '-' + str(player_two.score), True, BLUE)
+        elif winner == 2:
+            player_two.score += 1
+            general_score = font.render(str(player_one.score) + '-' + str(player_two.score), True, BLUE)
 
         if check_overlap(ball.radius, ball.x, ball.y, player_one.x, player_one.y, player_one.x + player_one.size_x, player_one.y + player_one.size_y) and ball.can_collid:
             ball.vector[X] *= -1
@@ -205,6 +235,8 @@ def pong() -> None:
             ball.vector[X] *= -1
             ball.speed += 1
 
+        screen.blit(general_score, (315, 10))
+
         pygame.display.flip()
         pygame.display.update()
 
@@ -212,13 +244,16 @@ def pong() -> None:
     cv2.destroyAllWindows()
     camera.release()
 
+
 #------------------------------------------------------------------------------#
+
 
 def description():
     print("USAGE")
     print("\t./pong")
     print("DESCRIPTION")
     print("\tPong game, play with your hands")
+
 
 if __name__ == '__main__':
     if len(sys.argv) != NB_ARG:
