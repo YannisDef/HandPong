@@ -8,9 +8,9 @@
 
 import sys
 import pygame
-from math import ceil
 from random import randint
 import cv2
+import mediapipe as mp
 import numpy
 
 NB_ARG=1
@@ -67,9 +67,10 @@ class Ball:
         self.color = RED
         self.speed = speed
         
-        self.canCollid = True
+        self.can_collid = True
 
         axe = [-1, 1]
+        #TODO axe[randint(0, 1)] mettre ca aussi en x
         self.vector = [-1, axe[randint(0, 1)]]
 
     def draw(self, screen):
@@ -91,7 +92,7 @@ class Ball:
         self.draw(screen)
         self.move(bonus)
 
-def checkOverlap(R, Xc, Yc, X1, Y1, X2, Y2):
+def check_overlap(R, Xc, Yc, X1, Y1, X2, Y2):
     Xn = max(X1, min(Xc, X2))
     Yn = max(Y1, min(Yc, Y2))
     Dx = Xn - Xc
@@ -101,56 +102,71 @@ def checkOverlap(R, Xc, Yc, X1, Y1, X2, Y2):
 #--------------------------HAND-DETECTION--------------------------------------#
 
 CAMERA = 0
-hand_cascad=cv2.CascadeClassifier("data/xml/fist.xml")
 camera = cv2.VideoCapture(CAMERA)
 
-marge = 70 # une marge de difference entre la main qui tourne a droite et la main qui tourne a gauche
-
 #------------------------------------------------------------------------------#
 
-def getSquares(tab_data: list, data_cascade, color) -> list:
-    """ get squares of face
-        
-        scaleFactor diminue le nombre de carré plus il est grand
-        minNeighbors va regarder x cases a coté voir si l'obj est toujours la, si oui alors il le déclare (3 < x < 5)
-
-    Args:
-        tab_data (list): list de data
-        
-    Returns:
-        list: list avec les nouveaux squares
-    """
-    face = data_cascade.detectMultiScale(color, scaleFactor=1.2, minNeighbors=4)
-    for x, y, w, h in face:
-        tab_data.append([x, y, x+w, y+h])
-    return tab_data
-
-#------------------------------------------------------------------------------#
-
-def blitCamFrame(frame,screen):
+def blit_cam_frame(frame, screen):
     screen.blit(frame,(0,0))
     return screen
 
-def getCamFrame(color,camera):
-    retval,frame=camera.read()
-    frame=cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
+def get_cam_frame(camera):
+    retval, frame=camera.read()
+    frame = cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
 
-    Nframe=numpy.rot90(frame)
-    Nframe=pygame.surfarray.make_surface(Nframe)
+    Nframe = numpy.rot90(frame)
+    Nframe = pygame.surfarray.make_surface(Nframe)
     return frame, Nframe
+
+class hand_detector:
+    def __init__(self, max_hands=2, detection_con=0.5, minTrack_con=0.5):
+        """
+        :param max_hands: Maximum number of hands to detect
+        :param detection_con: Minimum Detection Confidence Threshold
+        :param minTrack_con: Minimum Tracking Confidence Threshold
+        """
+        self.mp_hands = mp.solutions.hands
+        self.hands = self.mp_hands.Hands(
+            static_image_mode=False,
+            max_num_hands=max_hands,
+            min_detection_confidence=detection_con,
+            min_tracking_confidence=minTrack_con
+        )
+
+    def find_hands(self, img, player_one):
+        img_RGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        self.results = self.hands.process(img_RGB)
+        h, w, c = img.shape
+
+        if self.results.multi_hand_landmarks:
+            for _, handLms in zip(self.results.multi_handedness, self.results.multi_hand_landmarks):
+                limit_list = []
+                xList = []
+                yList = []
+                for id, lm in enumerate(handLms.landmark):
+                    px, py, pz = int(lm.x * w), int(lm.y * h), int(lm.z * w)
+                    limit_list.append([px, py, pz])
+                    xList.append(px)
+                    yList.append(py)
+
+                xmin, xmax = min(xList), max(xList)
+                ymin, ymax = min(yList), max(yList)
+                boxW, boxH = xmax - xmin, ymax - ymin
+                bbox = xmin, ymin, boxW, boxH
+
+                player_one.y = bbox[1]
 
 def pong() -> None:
     screen_is_open = True
     pygame.init()
 
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-    clock = pygame.time.Clock()
 
     player_one = Player(y=WINDOW_HEIGHT-500)
     player_two = Player(x=WINDOW_WIDTH-40, y=WINDOW_HEIGHT-500, col=GREEN)
     ball = Ball(speed=3)
 
-    #!--------------------------------------------------------------------------
+    detector = hand_detector(detection_con=0.8, max_hands=2)
 
     ret, frame = camera.read()
     cv2.flip(frame,1,frame)#mirror the image
@@ -158,55 +174,41 @@ def pong() -> None:
     while screen_is_open:
         screen.fill(BLACK)
 
-        frame, Nframe=getCamFrame(True,camera)
-        screen=blitCamFrame(Nframe,screen)
+        frame, Nframe = get_cam_frame(camera)
+        screen = blit_cam_frame(Nframe, screen)
 
+        #!----------------------------------------------------------------------
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 screen_is_open = False
-
-        player_one.update(screen)
-        player_two.update(screen)
-        ball.update(screen)
-
-        #!----------------------------------------------------------------------
         if not ret:
             print("ERROR with the cam")
             break
         if cv2.waitKey(1) == ord('q'):
-            break
-
-        tab_data = [] # reset le table data pour ne pas avoir plusieurs carrés
-
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        tab_data = getSquares(tab_data, hand_cascad, gray)
-
-        # cette boucle check la difference entre deux carrés pour savoir si c'est la meme ou pas
-        idx = 0
-        for x, y, x2, y2 in tab_data:
-            if not idx or (x-tab_data[idx-1][0]>marge or y-tab_data[idx-1][1]>marge): #? not idx ?
-#                cv2.rectangle(frame, (x, y), (x2, y2), (0, 0, 255), 2)
-                pygame.draw.rect(screen, BLUE, ((x, y), ((25, 100))))
-                player_one.x = x
-                player_one.y = y
-                print("x:", x," y: ",y)
-                idx+=1
-
-        idx/=2
-        idx = ceil(idx)
-
+            screen_is_open = False
         #!----------------------------------------------------------------------
-        if checkOverlap(ball.radius, ball.x, ball.y, player_one.x, player_one.y, player_one.x + player_one.size_x, player_one.y + player_one.size_y) and ball.canCollid:
+
+        detector.find_hands(frame, player_one)
+        player_one.update(screen)
+
+        #? AMAZING IA
+        player_two.update(screen)
+        player_two.y = ball.y - (player_two.size_y / 2)
+        #? ----------
+
+        ball.update(screen)
+
+        if check_overlap(ball.radius, ball.x, ball.y, player_one.x, player_one.y, player_one.x + player_one.size_x, player_one.y + player_one.size_y) and ball.can_collid:
             ball.vector[X] *= -1
-            ball.speed += 0.5
-        if checkOverlap(ball.radius, ball.x, ball.y, player_two.x, player_two.y, player_two.x + player_two.size_x, player_two.y + player_two.size_y) and ball.canCollid:
+            ball.speed += 1
+        if check_overlap(ball.radius, ball.x, ball.y, player_two.x, player_two.y, player_two.x + player_two.size_x, player_two.y + player_two.size_y) and ball.can_collid:
             ball.vector[X] *= -1
-            ball.speed += 0.5
+            ball.speed += 1
 
         pygame.display.flip()
         pygame.display.update()
 
-#    pygame.quit()
+    pygame.quit()
     cv2.destroyAllWindows()
     camera.release()
 
