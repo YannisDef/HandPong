@@ -152,13 +152,13 @@ class hand_detector:
             min_tracking_confidence=minTrack_con
         )
 
-    def find_hands(self, img, player_one):
+    def find_hands(self, img, player_one, player_two):
         img_RGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         self.results = self.hands.process(img_RGB)
         h, w, c = img.shape
 
         if self.results.multi_hand_landmarks:
-            for _, handLms in zip(self.results.multi_handedness, self.results.multi_hand_landmarks):
+            for hand, handLms in zip(self.results.multi_handedness, self.results.multi_hand_landmarks):
                 limit_list = []
                 xList = []
                 yList = []
@@ -173,7 +173,10 @@ class hand_detector:
                 boxW, boxH = xmax - xmin, ymax - ymin
                 bbox = xmin, ymin, boxW, boxH
 
-                player_one.y = bbox[1]
+                if hand.classification[0].label == 'Left':
+                    player_one.y = bbox[1]
+                if hand.classification[0].label == 'Right':
+                    player_two.y = bbox[1]
 
 
 def pong() -> None:
@@ -192,7 +195,7 @@ def pong() -> None:
     if not ret:
         print(f'error: {ret}')
         return ERROR
-    cv2.flip(frame, 1, frame)#mirror the image
+    cv2.flip(frame, 1, frame) # mirror the image
 
     font = pygame.font.SysFont('data/font/arial.ttf', 52)
     general_score = font.render(str(player_one.score) + '-' + str(player_two.score), True, BLUE)
@@ -211,12 +214,12 @@ def pong() -> None:
             screen_is_open = False
         #!----------------------------------------------------------------------
 
-        detector.find_hands(frame, player_one)
+        detector.find_hands(frame, player_one, player_two)
         player_one.update(screen)
 
-        #? AMAZING IA
         player_two.update(screen)
-        player_two.y = ball.y - (player_two.size_y / 2)
+        #? AMAZING IA
+#        player_two.y = ball.y - (player_two.size_y / 2)
         #? ----------
 
         winner = ball.update(screen)
