@@ -100,9 +100,9 @@ class Ball:
         screen.blit(self.skin, (self.pos['X'], self.pos['Y']))
 
     def move(self, bonus: int):
-        if self.vector['X'] == 1:
+        if self.vector['X'] == 1.0:
             self.pos['X'] += self.speed['speed'] + bonus
-        if self.vector['X'] == -1:
+        if self.vector['X'] == -1.0:
             self.pos['X'] -= self.speed['speed'] + bonus
         self.pos['Y'] += self.vector['Y'] + bonus
 
@@ -110,7 +110,8 @@ class Ball:
         if self.pos['Y'] <= 0 or self.pos['Y'] >= WINDOW_HEIGHT - self.radius:
             self.vector['Y'] *= -1
         if self.pos['X'] < 0 or self.pos['X'] > WINDOW_WIDTH:
-            self.vector = [self.axe[randint(0, 1)], self.axe[randint(0, 1)]]
+            self.vector['X'] = self.axe[randint(0, 1)]
+            self.vector['Y'] = self.axe[randint(0, 1)]
             tmp_x = self.pos['X']
             self.pos['X'], self.pos['Y'] = self.pos['spawn_X'], self.pos['spawn_Y']
             self.speed['speed'] = self.speed['speed_start']
@@ -120,7 +121,7 @@ class Ball:
         return 0
 
 
-def hit(screen, sound, ball, player_one, player_two):
+def hit(sound, ball, player_one, player_two):
     player = player_two if ball.pos['X'] > WINDOW_WIDTH / 2 else player_one
     sound.play()
     ball.vector['X'] *= -1
@@ -272,7 +273,7 @@ def pong(fullscreen: bool) -> None:
                 player_two.score += 1
     
         if (check_overlap(ball, player_one, player_two)) and ball.can_collid:
-            hit(screen, hit_sound, ball, player_one, player_two)
+            hit(hit_sound, ball, player_one, player_two)
 
         screen.blit(font.render(str(player_one.score), True, BLUE), (100, WINDOW_HEIGHT-100))
         screen.blit(font.render(str(player_two.score), True, RED), (WINDOW_WIDTH-100, WINDOW_HEIGHT-100))
