@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 ##
-## CREATIVE LAB PROJECT, 2023
+## CREATIVE LAB PROJECT, 2022
 ## Yannis Defontaine
 ## File description:
 ## Pong game, play with your hands
@@ -289,6 +289,7 @@ def description():
     print("DESCRIPTION")
     print("\tPong game, play with your hands")
     print("\t-f if you want to fullscreen")
+    exit(0)
 
 
 if __name__ == '__main__':
@@ -297,6 +298,5 @@ if __name__ == '__main__':
     if len(sys.argv) == 2:
         if sys.argv[1] == "-h":
             description()
-            exit(0)
         pong(True if sys.argv[1] == "-f" else False)
     pong(False)
