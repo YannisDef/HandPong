@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 ##
-## CREATIVE LAB PROJECT, 2022
+## CREATIVE LAB PROJECT, 2023
 ## Yannis Defontaine
 ## File description:
 ## Pong game, play with your hands
@@ -19,8 +19,9 @@ player_one_skin = 'data/skin/blue_racket.png'
 player_two_skin = 'data/skin/red_racket.png'
 ball_skin = 'data/skin/ball.png'
 map_skin = 'data/skin/map.png'
+font_path = 'data/font/arial.ttf'
 
-NB_ARG = 1
+NB_ARG = 2
 ERROR = -1
 SUCCESS = 0
 
@@ -74,7 +75,7 @@ class Player:
 
 
 class Ball:
-    def __init__(self, position: tuple = (WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2), circle_radius: int = 10, speed: int = 12) -> None:
+    def __init__(self, position: tuple = (WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2), circle_radius: int = 10, speed: int = 15) -> None:
         self.pos = {
             'X': position[X],
             'Y': position[Y],
@@ -110,8 +111,7 @@ class Ball:
         if self.pos['Y'] <= 0 or self.pos['Y'] >= WINDOW_HEIGHT - self.radius:
             self.vector['Y'] *= -1
         if self.pos['X'] < 0 or self.pos['X'] > WINDOW_WIDTH:
-            self.vector['X'] = self.axe[randint(0, 1)]
-            self.vector['Y'] = self.axe[randint(0, 1)]
+            self.vector['X'], self.vector['Y'] = self.axe[randint(0, 1)], self.axe[randint(0, 1)]
             tmp_x = self.pos['X']
             self.pos['X'], self.pos['Y'] = self.pos['spawn_X'], self.pos['spawn_Y']
             self.speed['speed'] = self.speed['speed_start']
@@ -126,17 +126,13 @@ def hit(sound, ball, player_one, player_two):
     sound.play()
     ball.vector['X'] *= -1
     ball.speed['speed'] += ACCELERATION
+    deviations = [-10, -5, 0, 5, 10]
+    offsets = [20, 40, 60, 80, 100]
 
-    if ball.pos['Y'] < player.pos['Y'] + 20:
-        ball.vector['Y'] = -10
-    elif ball.pos['Y'] < player.pos['Y'] + 40:
-        ball.vector['Y'] = -5
-    elif ball.pos['Y'] < player.pos['Y'] + 60:
-        ball.vector['Y'] = 0
-    elif ball.pos['Y'] < player.pos['Y'] + 80:
-        ball.vector['Y'] = 5
-    elif ball.pos['Y'] < player.pos['Y'] + 100:
-        ball.vector['Y'] = 10
+    for offset, deviation in zip(offsets, deviations):
+        if ball.pos['Y'] < player.pos['Y'] + offset:
+            ball.vector['Y'] = deviation
+            break
 
 
 def check_overlap(ball, player, player_two):
@@ -146,10 +142,14 @@ def check_overlap(ball, player, player_two):
         player = player_two
     Xn = max(player.pos['X'], min(ball.pos['X'], player.pos['X'] + player.size['X']))
     Yn = max(player.pos['Y'], min(ball.pos['Y'], player.pos['Y'] + player.size['Y']))
+
+#    print(player.pos['X'], player.pos['Y'])
+#    print("Y", Xn, Yn)
     Dx = Xn - ball.pos['X']
     Dy = Yn - ball.pos['Y']
+#    print("D", Dx, Dy)
+#    print()
     return (Dx**2 + Dy**2) <= ball.radius**2
-
 
 #--------------------------HAND-DETECTION--------------------------------------#
 
@@ -161,7 +161,7 @@ def blit_cam_frame(frame, screen):
 
 
 def get_cam_frame(camera):
-    retval, frame=camera.read()
+    _, frame=camera.read()
     frame = cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
 
     Nframe = numpy.rot90(frame)
@@ -187,14 +187,14 @@ class hand_detector:
     def find_hands(self, img, player_one, player_two):
         img_RGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         self.results = self.hands.process(img_RGB)
-        h, w, c = img.shape
+        h, w, _ = img.shape
 
         if self.results.multi_hand_landmarks:
             for hand, handLms in zip(self.results.multi_handedness, self.results.multi_hand_landmarks):
                 limit_list = []
                 xList = []
                 yList = []
-                for id, lm in enumerate(handLms.landmark):
+                for _, lm in enumerate(handLms.landmark):
                     px, py, pz = int(lm.x * w), int(lm.y * h), int(lm.z * w)
                     limit_list.append([px, py, pz])
                     xList.append(px)
@@ -215,16 +215,13 @@ def pong(fullscreen: bool) -> None:
     screen_is_open = True
     pygame.init()
 
-    if fullscreen:
-        screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.FULLSCREEN)
-    else:
-        screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+    screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.FULLSCREEN if fullscreen else 0)
 
     map_bg = pygame.image.load(map_skin)
-    font = pygame.font.SysFont('data/font/arial.ttf', 52)
-    player_one = Player(position=(10, WINDOW_HEIGHT-500), link_img=player_one_skin)
-    player_two = Player(position=(WINDOW_WIDTH-40, WINDOW_HEIGHT-500), link_img=player_two_skin)
-    ball = Ball(speed=15)
+    font = pygame.font.SysFont(font_path, 52)
+    player_one = Player(position=(10, WINDOW_HEIGHT/2), link_img=player_one_skin)
+    player_two = Player(position=(WINDOW_WIDTH-25, WINDOW_HEIGHT/2), link_img=player_two_skin)
+    ball = Ball()
 
     detector = hand_detector(detection_con=0.8, max_hands=2)
     ret, frame = camera.read()
@@ -266,11 +263,10 @@ def pong(fullscreen: bool) -> None:
         player_one.update(screen)
         player_two.update(screen)
         winner = ball.update(screen)
-        if winner != 0:
-            if winner == 1:
-                player_one.score += 1
-            elif winner == 2:
-                player_two.score += 1
+        if winner == 1:
+            player_one.score += 1
+        elif winner == 2:
+            player_two.score += 1
     
         if (check_overlap(ball, player_one, player_two)) and ball.can_collid:
             hit(hit_sound, ball, player_one, player_two)
@@ -285,20 +281,22 @@ def pong(fullscreen: bool) -> None:
     cv2.destroyAllWindows()
     camera.release()
 
-#------------------------------------------------------------------------------#
-
 
 def description():
+    print()
     print("USAGE")
     print("\t./pong")
     print("DESCRIPTION")
     print("\tPong game, play with your hands")
-    print("\-f if you want to fullscreen")
+    print("\t-f if you want to fullscreen")
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != NB_ARG:
+    if len(sys.argv) > NB_ARG:
         exit(ERROR)
-    if sys.argv[0] == "-h":
-        description()
-    pong(True if sys.argv[0] == "-f" else False)
+    if len(sys.argv) == 2:
+        if sys.argv[1] == "-h":
+            description()
+            exit(0)
+        pong(True if sys.argv[1] == "-f" else False)
+    pong(False)
