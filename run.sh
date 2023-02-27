@@ -1,1 +1,1 @@
-./src/pong -f
+./src/pong $1

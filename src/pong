@@ -45,6 +45,9 @@ ACCELERATION = 5
 
 
 class Player:
+    """
+        Player is a bar who move with your hand
+    """
     def __init__(self, position: tuple = (10, 10), size: tuple = (25, 100), speed: int = 10, link_img: str = player_one_skin) -> None:
         self.pos = {
             'X': position[X],
@@ -69,12 +72,15 @@ class Player:
            self.pos['Y'] += self.speed + bonus
 
     def update(self, screen, bonus: int = 0):
-        self.pos['Y'] *= WINDOW_WIDTH/CAMERA_WIDTH
+        self.pos['Y'] *= WINDOW_WIDTH / CAMERA_WIDTH
+        self.pos['Y'] = min(self.pos['Y'], 2000)
         self.draw(screen)
-        self.move(bonus)
 
 
 class Ball:
+    """
+        Ball: Ball who will move with Player collision 
+    """
     def __init__(self, position: tuple = (WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2), circle_radius: int = 10, speed: int = 15) -> None:
         self.pos = {
             'X': position[X],
@@ -122,6 +128,14 @@ class Ball:
 
 
 def hit(sound, ball, player_one, player_two):
+    """ Function call if the Ball hit one player
+
+    Args:
+        sound: the sound that will be played if there is a collision
+        ball (Ball): Ball
+        player_one (Player): Player who maybe hit the ball
+        player_two (Player): Player who maybe hit the ball
+    """
     player = player_two if ball.pos['X'] > WINDOW_WIDTH / 2 else player_one
     sound.play()
     ball.vector['X'] *= -1
@@ -136,19 +150,24 @@ def hit(sound, ball, player_one, player_two):
 
 
 def check_overlap(ball, player, player_two):
+    """ Detect if ball collide a Player
+
+    Args:
+        ball (Ball): ball
+        player (Player): Player who maybe hit the ball
+        player_two (Player): Player who maybe hit the ball
+
+    Returns:
+        bool: True if there is collision, otherwise False
+    """
     if ball.pos['X'] > 200 and ball.pos['X'] < 900:
         return False
     if ball.pos['X'] > WINDOW_WIDTH / 2:
         player = player_two
     Xn = max(player.pos['X'], min(ball.pos['X'], player.pos['X'] + player.size['X']))
     Yn = max(player.pos['Y'], min(ball.pos['Y'], player.pos['Y'] + player.size['Y']))
-
-#    print(player.pos['X'], player.pos['Y'])
-#    print("Y", Xn, Yn)
     Dx = Xn - ball.pos['X']
     Dy = Yn - ball.pos['Y']
-#    print("D", Dx, Dy)
-#    print()
     return (Dx**2 + Dy**2) <= ball.radius**2
 
 #--------------------------HAND-DETECTION--------------------------------------#
@@ -206,9 +225,9 @@ class hand_detector:
                 bbox = xmin, ymin, boxW, boxH
 
                 if hand.classification[0].label == 'Left':
-                    player_one.pos['Y'] = bbox[1]
-                if hand.classification[0].label == 'Right':
                     player_two.pos['Y'] = bbox[1]
+                if hand.classification[0].label == 'Right':
+                    player_one.pos['Y'] = bbox[1]
 
 
 def pong(fullscreen: bool) -> None:
@@ -230,14 +249,12 @@ def pong(fullscreen: bool) -> None:
         return ERROR
     cv2.flip(frame, 1, frame) # mirror the image
 
-    #?----------------------------------------------------------------------
     pygame.mixer.init()
     hit_sound = pygame.mixer.Sound(pop_sound)
     hit_sound.set_volume(0.5)
     pygame.mixer.music.load(game_music)
     pygame.mixer.music.play()
     pygame.mixer.music.set_volume(0.1)
-    #?----------------------------------------------------------------------
 
     while screen_is_open:
         screen.fill(BLACK)
@@ -289,7 +306,6 @@ def description():
     print("DESCRIPTION")
     print("\tPong game, play with your hands")
     print("\t-f if you want to fullscreen")
-    exit(0)
 
 
 if __name__ == '__main__':
@@ -298,5 +314,6 @@ if __name__ == '__main__':
     if len(sys.argv) == 2:
         if sys.argv[1] == "-h":
             description()
+            exit(0)
         pong(True if sys.argv[1] == "-f" else False)
     pong(False)
