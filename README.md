@@ -10,7 +10,7 @@ There is a hand detection to play with your hands.
 ## Usage
 
 ```bash
-run ./run.sh
+./run.sh
 ```
 
 ## Lib
