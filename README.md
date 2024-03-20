@@ -3,7 +3,7 @@
 
 ## Summary
 
-It's a game to play classical Pong game but with you webcam !
+It's a game to play classical Pong game but with your webcam !
 
 There is a hand detection to play with your hands.
 
